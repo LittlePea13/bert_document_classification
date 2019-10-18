@@ -307,8 +307,8 @@ class BertForDocumentClassification():
                 eval_results.write('Precision\t' + '\t'.join([str(precisions[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
                 eval_results.write('Recall\t' + '\t'.join([str(recalls[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
                 eval_results.write('F1\t' + '\t'.join([ str(fmeasures[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
-                eval_results.write('Average-Precision\t' + '\t'.join([ str(aprecisions[label_idx]) for label_idx in range(aprecisions.shape[0])]) + '\n' )
-                eval_results.write('Precision-at-30\t' + '\t'.join([ str(precisionk[label_idx]) for label_idx in range(precisionk.shape[0])]) + '\n' )
+                eval_results.write('Average-Precision\t' + '\t'.join([ str(aprecisions[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
+                eval_results.write('Precision-at-30\t' + '\t'.join([ str(precisionk[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
                 eval_results.write('Micro-F1\t' + str(micro_f1) + '\n' )
                 eval_results.write('Macro-F1\t' + str(macro_f1) + '\n' )
 
