@@ -5,7 +5,7 @@ from torch import nn
 import torch,math,logging,os
 from sklearn.metrics import f1_score, precision_score, recall_score
 from tqdm import tqdm
-
+from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
@@ -102,7 +102,24 @@ class BertForDocumentClassification():
             self.args['fold'] = 0
 
         assert self.args['labels'] is not None, "Must specify all labels in prediction"
+        '''
+        if args.tpu:
+            if args.tpu_ip_address:
+                os.environ["TPU_IP_ADDRESS"] = args.tpu_ip_address
+            if args.tpu_name:
+                os.environ["TPU_NAME"] = args.tpu_name
+            if args.xrt_tpu_config:
+                os.environ["XRT_TPU_CONFIG"] = args.xrt_tpu_config
 
+            assert "TPU_IP_ADDRESS" in os.environ
+            assert "TPU_NAME" in os.environ
+            assert "XRT_TPU_CONFIG" in os.environ
+
+            import torch_xla
+            import torch_xla.core.xla_model as xm
+            args['device'] = xm.xla_device()
+            args['xla_model'] = xm
+        '''
         self.log = logging.getLogger()
         self.bert_tokenizer = BertTokenizer.from_pretrained(self.args['bert_model_path'])
 
@@ -253,17 +270,22 @@ class BertForDocumentClassification():
             precisions = []
             recalls = []
             fmeasures = []
-
+            aprecisions = []
+            precisionk = []
             for label_idx in range(predictions.shape[0]):
                 correct = correct_output[label_idx].cpu().view(-1).numpy()
                 predicted = predictions[label_idx].cpu().view(-1).numpy()
                 present_f1_score = f1_score(correct, predicted, average='binary', pos_label=1)
                 present_precision_score = precision_score(correct, predicted, average='binary', pos_label=1)
                 present_recall_score = recall_score(correct, predicted, average='binary', pos_label=1)
+                present_average_precision_score = average_precision_score(correct, predicted)
+                present_precisionk_score = precision_at_k_score(correct, predicted,30)
 
                 precisions.append(present_precision_score)
                 recalls.append(present_recall_score)
                 fmeasures.append(present_f1_score)
+                aprecisions.append(present_average_precision_score)
+                precisionk.append(present_precisionk_score)
                 logging.info('F1\t%s\t%f' % (self.args['labels'][label_idx], present_f1_score))
 
             micro_f1 = f1_score(correct_output.reshape(-1).numpy(), predictions.reshape(-1).numpy(), average='micro')
@@ -274,6 +296,8 @@ class BertForDocumentClassification():
                     self.tensorboard_writer.add_scalar('Precision/%s/Test' % self.args['labels'][label_idx].replace(" ", "_"), precisions[label_idx], self.epoch)
                     self.tensorboard_writer.add_scalar('Recall/%s/Test' % self.args['labels'][label_idx].replace(" ", "_"), recalls[label_idx], self.epoch)
                     self.tensorboard_writer.add_scalar('F1/%s/Test' % self.args['labels'][label_idx].replace(" ", "_"), fmeasures[label_idx], self.epoch)
+                    self.tensorboard_writer.add_scalar('Average-Precision/%s/Test' % self.args['labels'][label_idx].replace(" ", "_"), aprecisions[label_idx], self.epoch)
+                    self.tensorboard_writer.add_scalar('Precision-at-30/%s/Test' % self.args['labels'][label_idx].replace(" ", "_"), precisionk[label_idx], self.epoch)
                 self.tensorboard_writer.add_scalar('Micro-F1/Test', micro_f1, self.epoch)
                 self.tensorboard_writer.add_scalar('Macro-F1/Test', macro_f1, self.epoch)
 
@@ -282,6 +306,8 @@ class BertForDocumentClassification():
                 eval_results.write('Precision\t' + '\t'.join([str(precisions[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
                 eval_results.write('Recall\t' + '\t'.join([str(recalls[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
                 eval_results.write('F1\t' + '\t'.join([ str(fmeasures[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
+                eval_results.write('Average-Precision\t' + '\t'.join([ str(aprecisions[label_idx]) for label_idx in range(aprecisions.shape[0])]) + '\n' )
+                eval_results.write('Precision-at-30\t' + '\t'.join([ str(precisionk[label_idx]) for label_idx in range(precisionk.shape[0])]) + '\n' )
                 eval_results.write('Micro-F1\t' + str(micro_f1) + '\n' )
                 eval_results.write('Macro-F1\t' + str(macro_f1) + '\n' )
 
