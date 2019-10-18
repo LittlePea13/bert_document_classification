@@ -4,7 +4,7 @@ from pytorch_transformers.tokenization_bert import BertTokenizer
 from torch import nn
 import torch,math,logging,os
 from sklearn.metrics import f1_score, precision_score, recall_score
-
+from tqdm import tqdm
 
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool
 
@@ -158,16 +158,17 @@ class BertForDocumentClassification():
 
         correct_output = torch.FloatTensor(train_labels)
 
-        loss_weight = ((correct_output.shape[0] / torch.sum(correct_output, dim=0))-1).to(device=self.args['device'])
+        loss_weight = ((correct_output.shape[0] / torch.sum(correct_output, dim=0))-self.args['loss_bias']).to(device=self.args['device'])
         self.loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=loss_weight)
+        self.log.info('Loss weight: %f' % (loss_weight))
 
         assert document_representations.shape[0] == correct_output.shape[0]
 
         if torch.cuda.device_count() > 1:
             self.bert_doc_classification = torch.nn.DataParallel(self.bert_doc_classification)
         self.bert_doc_classification.to(device=self.args['device'])
-
-        for epoch in range(1,self.args['epochs']+1):
+        self.log.info('Training starting')
+        for epoch in tqdm(range(1,self.args['epochs']+1)):
             # shuffle
             permutation = torch.randperm(document_representations.shape[0])
             document_representations = document_representations[permutation]
@@ -176,7 +177,7 @@ class BertForDocumentClassification():
 
             self.epoch = epoch
             epoch_loss = 0.0
-            for i in range(0, document_representations.shape[0], self.args['batch_size']):
+            for i in tqdm(range(0, document_representations.shape[0], self.args['batch_size'])):
 
                 batch_document_tensors = document_representations[i:i + self.args['batch_size']].to(device=self.args['device'])
                 batch_document_sequence_lengths= document_sequence_lengths[i:i+self.args['batch_size']]

@@ -18,7 +18,8 @@ from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
 from bert_document_classification.document_bert import BertForDocumentClassification
 from pprint import pformat
-
+import sqlite3
+import pandas as pd
 import time, logging, torch, configargparse, os, socket
 
 log = logging.getLogger()
@@ -36,6 +37,7 @@ def _initialize_arguments(p: configargparse.ArgParser):
     #Optimizer arguments
     p.add('--learning_rate', help='Optimizer step size', type=float)
     p.add('--weight_decay', help='Adam regularization', type=float)
+    p.add('--loss_bias', help='Loss factor to substract', type=float, default = 1.0)
 
     p.add('--evaluation_interval', help='Evaluate model on test set every evaluation_interval epochs', type=int)
     p.add('--checkpoint_interval', help='Save a model checkpoint to disk every checkpoint_interval epochs', type=int)
@@ -93,13 +95,19 @@ if __name__ == "__main__":
     args = _initialize_arguments(p)
 
     torch.cuda.empty_cache()
-
+    conn = sqlite3.connect('database.db')
+    mapping = {-1:0,0:0,1:1,2:1}
+    articles = pd.read_sql_query(
+        "Select article_data.*, submited.Relevance, submited.disease, "
+        "submited.technique from 'Submited Articles' as submited, "
+        "Articles as article_data where submited.PMID = article_data.PMID group by submited.PMID", conn)
+    conn.close()
     #documents and labels for training
-    train_documents, train_labels = ["first train document", "second train document"],[[0,1,0,0], [0,0,0,1]]
+    train_documents, train_labels = list(articles['title']+articles.abstract_text)[1:round(0.8*len(articles))],[[mapping[element]] for element in list(articles.Relevance)][1:round(0.8*len(articles))]
 
 
     #documents and labels for development
-    dev_documents, dev_labels = ["first development document", "second development document"],[[0,0,1,0], [0,0,0,1]]
+    dev_documents, dev_labels = list(articles['title']+articles.abstract_text)[round(0.8*len(articles)):],[[mapping[element]] for element in list(articles.Relevance)][round(0.8*len(articles)):]
 
     model = BertForDocumentClassification(args=args)
     model.fit((train_documents, train_labels), (dev_documents,dev_labels))
