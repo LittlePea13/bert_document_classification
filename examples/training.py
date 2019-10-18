@@ -101,17 +101,57 @@ if __name__ == "__main__":
         "Select article_data.*, submited.Relevance, submited.disease, "
         "submited.technique from 'Submited Articles' as submited, "
         "Articles as article_data where submited.PMID = article_data.PMID group by submited.PMID", conn)
+    countries_list = pd.read_sql_query("Select * from 'countries'", conn)
     conn.close()
+
+    # full_data_set = fetch_details(list(articles.PMID.astype(str)))
+    # full_data_set = pd.DataFrame([full_data_set[x] for x in full_data_set])
+
+    articles["abstract"] = articles["abstract_text"]
+
+    country_train = []
+    for indx, pubmed_article in articles.iterrows():
+        # affiliation
+        try:
+            # default country is empty
+            country = ""
+
+            for word in pubmed_article['affiliation'].split():
+                word = re.sub('[^\w\s]', '', word)
+                country_list = countries_list["name"][countries_list["alternate"] == word]
+                # take the first country name (all the same)
+                if len(country_list) > 0:
+                    country = country_list.iloc[0]
+                    break
+        except:
+            country = ""
+        country_train.append(country)
+    articles['country'] = country_train
+    articles["estimation_text"] = (articles["title"] + " ") + \
+                            (articles["country"] + " ") + \
+                            articles["abstract"]
+
+    articles.loc[articles["Relevance"].isin([1, 2]), "Relevance"] = "Relevant"
+    articles.loc[articles["Relevance"].isin([-1, 0]), "Relevance"] = "Not Relevant"
+    df_training, df_test = train_test_split(articles,
+                                            train_size=0.8,
+                                            stratify=articles.Relevance,
+                                            random_state=0)
+
     #documents and labels for training
-    train_documents, train_labels = list(articles['title']+articles.abstract_text)[1:round(0.8*len(articles))],[[mapping[element]] for element in list(articles.Relevance)][1:round(0.8*len(articles))]
+    training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
+    dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
+
+    train = (articles["estimation_text"], training_labels)
+    dev = (df_test["estimation_text"], dev_labels)
+
+    #train_documents, train_labels = list(articles['title']+articles.abstract_text)[1:round(0.8*len(articles))],[[mapping[element]] for element in list(articles.Relevance)][1:round(0.8*len(articles))]
 
 
     #documents and labels for development
-    dev_documents, dev_labels = list(articles['title']+articles.abstract_text)[round(0.8*len(articles)):],[[mapping[element]] for element in list(articles.Relevance)][round(0.8*len(articles)):]
+    #dev_documents, dev_labels = list(articles['title']+articles.abstract_text)[round(0.8*len(articles)):],[[mapping[element]] for element in list(articles.Relevance)][round(0.8*len(articles)):]
 
     model = BertForDocumentClassification(args=args)
-    model.fit((train_documents, train_labels), (dev_documents,dev_labels))
-
-
+    model.fit(train, dev)
 
 
