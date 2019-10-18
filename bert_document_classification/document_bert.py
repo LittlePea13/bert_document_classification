@@ -279,7 +279,7 @@ class BertForDocumentClassification():
                 present_precision_score = precision_score(correct, predicted, average='binary', pos_label=1)
                 present_recall_score = recall_score(correct, predicted, average='binary', pos_label=1)
                 present_average_precision_score = average_precision_score(correct, predicted)
-                present_precisionk_score = precision_at_k_score(correct, predicted,30)
+                present_precisionk_score = precision_at_k_score(correct.reshape(-1, 1), predicted.reshape(-1, 1),30)
 
                 precisions.append(present_precision_score)
                 recalls.append(present_recall_score)
