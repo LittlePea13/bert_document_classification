@@ -287,6 +287,7 @@ class BertForDocumentClassification():
                 aprecisions.append(present_average_precision_score)
                 precisionk.append(present_precisionk_score)
                 logging.info('F1\t%s\t%f' % (self.args['labels'][label_idx], present_f1_score))
+                logging.info('Precision-at-30\t%s\t%f' % (self.args['labels'][label_idx], present_precisionk_score))
 
             micro_f1 = f1_score(correct_output.reshape(-1).numpy(), predictions.reshape(-1).numpy(), average='micro')
             macro_f1 = f1_score(correct_output.reshape(-1).numpy(), predictions.reshape(-1).numpy(), average='macro')
