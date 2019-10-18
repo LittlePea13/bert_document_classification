@@ -3,7 +3,7 @@ from pytorch_transformers.modeling_utils import WEIGHTS_NAME, CONFIG_NAME
 from pytorch_transformers.tokenization_bert import BertTokenizer
 from torch import nn
 import torch,math,logging,os
-from sklearn.metrics import f1_score, precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
 from tqdm import tqdm
 from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool
