@@ -31,7 +31,7 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 setup(
-    name='bert_document_classification',
+    name='bert_document_classification_pubmeds',
     version=__version__,
     license='MIT',
     description='long document classification with language models',
