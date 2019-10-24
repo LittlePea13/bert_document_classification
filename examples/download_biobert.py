@@ -35,5 +35,5 @@ from pytorch_transformers.convert_tf_checkpoint_to_pytorch import  convert_tf_ch
 download_file_from_google_drive('1R84voFKHfWV9xjzeLzWBbmY1uOMYpnyD', 'biobert_v1.1_pubmed.tar.gz')
 os.system('tar -xzf biobert_v1.1_pubmed.tar.gz', 'biobert_v1.1_pubmed/bert_config.json')
 convert_tf_checkpoint_to_pytorch('biobert_v1.1_pubmed/model.ckpt-1000000', 'biobert_v1.1_pubmed/pytorch_model.bin' )
-zos.system('pytorch_transformers bert --tf_checkpoint_path biobert_v1.1_pubmed/model.ckpt-1000000 --bert_config_file biobert_v1.1_pubmed/bert_config.json --pytorch_dump_path biobert_v1.1_pubmed/pytorch_model.bin')
+os.system('pytorch_transformers bert --tf_checkpoint_path biobert_v1.1_pubmed/model.ckpt-1000000 --bert_config_file biobert_v1.1_pubmed/bert_config.json --pytorch_dump_path biobert_v1.1_pubmed/pytorch_model.bin')
 os.system('mv biobert_v1.1_pubmed/bert_config.json biobert_v1.1_pubmed/config.json')

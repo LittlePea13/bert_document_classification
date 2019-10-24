@@ -5,7 +5,8 @@ from torch import nn
 import torch,math,logging,os
 from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
 from tqdm import tqdm
-from sklearn.metrics.classification import precision_at_k_score
+import numpy as np
+#from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
@@ -254,6 +255,8 @@ class BertForDocumentClassification():
                                                           batch_document_sequence_lengths,device=self.args['device'])
                 predictions[i:i + self.args['batch_size']] = prediction
 
+        predictions_cont = predictions.transpose(0, 1).clone()
+        #logging.info(str(predictions_cont[:50]))
         for r in range(0, predictions.shape[0]):
             for c in range(0, predictions.shape[1]):
                 if predictions[r][c] > threshold:
@@ -261,7 +264,6 @@ class BertForDocumentClassification():
                 else:
                     predictions[r][c] = 0
         predictions = predictions.transpose(0, 1)
-
 
         if correct_output is None:
             return predictions.cpu()
@@ -275,21 +277,26 @@ class BertForDocumentClassification():
             for label_idx in range(predictions.shape[0]):
                 correct = correct_output[label_idx].cpu().view(-1).numpy()
                 predicted = predictions[label_idx].cpu().view(-1).numpy()
+                predicted_cont = predictions_cont[label_idx].cpu().view(-1).numpy()
+                sorted_predict = np.argsort(-predicted_cont)[:30]
                 present_f1_score = f1_score(correct, predicted, average='binary', pos_label=1)
                 present_precision_score = precision_score(correct, predicted, average='binary', pos_label=1)
                 present_recall_score = recall_score(correct, predicted, average='binary', pos_label=1)
                 present_average_precision_score = average_precision_score(correct, predicted)
                 try:
-                    present_precisionk_score = precision_at_k_score(correct.reshape(-1, 1), predicted.reshape(-1, 1),30)[0]
+                    present_precisionk_score = precision_score(correct[sorted_predict], predicted[sorted_predict],average='binary', pos_label=1)
                 except:
-                    logging.info('Not enough samples for Precision@30')
+                    # logging.info('Not enough samples for Precision@30')
+                    # logging.info(str(sum(predicted)))
+                    # logging.info(str(len(predicted)))
+                    # logging.info(str(predicted_cont[:50]))
                     present_precisionk_score = 0.0
                 precisions.append(present_precision_score)
                 recalls.append(present_recall_score)
                 fmeasures.append(present_f1_score)
                 aprecisions.append(present_average_precision_score)
                 precisionk.append(present_precisionk_score)
-                logging.info('F1\t%s\t%f' % (self.args['labels'][label_idx], present_f1_score))
+                #logging.info('F1\t%s\t%f' % (self.args['labels'][label_idx], present_f1_score))
                 logging.info('Precision-at-30\t%s\t%f' % (self.args['labels'][label_idx], present_precisionk_score))
 
             micro_f1 = f1_score(correct_output.reshape(-1).numpy(), predictions.reshape(-1).numpy(), average='micro')
