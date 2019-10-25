@@ -165,7 +165,7 @@ class BertForDocumentClassification():
         """
 
         train_documents, train_labels = train
-        dev_documents, dev_labels = train
+        dev_documents, dev_labels = dev
 
 
 
@@ -266,7 +266,7 @@ class BertForDocumentClassification():
         predictions = predictions.transpose(0, 1)
 
         if correct_output is None:
-            return predictions.cpu()
+            return predictions.cpu() ,predictions_cont.cpu()
         else:
             assert correct_output.shape == predictions.shape
             precisions = []
@@ -323,6 +323,7 @@ class BertForDocumentClassification():
                 eval_results.write('Macro-F1\t' + str(macro_f1) + '\n' )
 
         self.bert_doc_classification.train()
+        return predictions.cpu() ,predictions_cont.cpu()
 
     def save_checkpoint(self, checkpoint_path: str):
         """
