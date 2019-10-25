@@ -18,7 +18,7 @@ class DocumentBertLSTM(BertPreTrainedModel):
         self.classifier = nn.Sequential(
             nn.Dropout(p=bert_model_config.hidden_dropout_prob),
             nn.Linear(bert_model_config.hidden_size, bert_model_config.num_labels),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     #input_ids, token_type_ids, attention_masks
@@ -65,7 +65,7 @@ class DocumentBertLinear(BertPreTrainedModel):
         self.classifier = nn.Sequential(
             nn.Dropout(p=bert_model_config.hidden_dropout_prob),
             nn.Linear(bert_model_config.hidden_size * self.bert_batch_size, bert_model_config.num_labels),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     #input_ids, token_type_ids, attention_masks
@@ -110,7 +110,7 @@ class DocumentBertMaxPool(BertPreTrainedModel):
         self.classifier = nn.Sequential(
             nn.Dropout(p=bert_model_config.hidden_dropout_prob),
             nn.Linear(bert_model_config.hidden_size, bert_model_config.num_labels),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     #input_ids, token_type_ids, attention_masks
@@ -155,7 +155,7 @@ class DocumentBertTransformer(BertPreTrainedModel):
         self.classifier = nn.Sequential(
             nn.Dropout(p=bert_model_config.hidden_dropout_prob),
             nn.Linear(bert_model_config.hidden_size, bert_model_config.num_labels),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     #input_ids, token_type_ids, attention_masks

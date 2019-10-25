@@ -15,10 +15,11 @@ labels: an ordered list of labels you are training against. this should match th
 """
 
 from sklearn.metrics import f1_score
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, normalize
 from bert_document_classification.document_bert import BertForDocumentClassification
 from pprint import pformat
 import sqlite3
+import numpy as np
 import pandas as pd
 import time, logging, torch, configargparse, os, socket
 
@@ -96,7 +97,6 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     conn = sqlite3.connect('database.db')
-    mapping = {-1:0,0:0,1:1,2:1}
     articles = pd.read_sql_query(
         "Select article_data.*, submited.Relevance, submited.disease, "
         "submited.technique from 'Submited Articles' as submited, "
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     articles["estimation_text"] = (articles["title"] + " ") + \
                             (articles["country"] + " ") + \
                             articles["abstract"]
-
+    articles["Reg_Relevance"] = articles["Relevance"]
     articles.loc[articles["Relevance"].isin([1, 2]), "Relevance"] = "Relevant"
     articles.loc[articles["Relevance"].isin([-1, 0]), "Relevance"] = "Not Relevant"
     df_training, df_test = train_test_split(articles,
@@ -139,8 +139,8 @@ if __name__ == "__main__":
                                             random_state=0)
 
     #documents and labels for training
-    training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
-    dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
+    training_labels = normalize(np.array(df_training["Reg_Relevance"]))
+    dev_labels = normalize(np.array(df_test["Reg_Relevance"]))
 
     train = (articles["estimation_text"], training_labels)
     dev = (df_test["estimation_text"], dev_labels)

@@ -177,7 +177,7 @@ class BertForDocumentClassification():
         correct_output = torch.FloatTensor(train_labels)
 
         loss_weight = ((correct_output.shape[0] / torch.sum(correct_output, dim=0))-self.args['loss_bias']).to(device=self.args['device'])
-        self.loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=loss_weight)
+        self.loss_function = torch.nn.MSELossthLogitsLoss()
         self.log.info('Loss weight: %f' % (loss_weight))
 
         assert document_representations.shape[0] == correct_output.shape[0]
