@@ -207,7 +207,7 @@ class BertForDocumentClassification():
                 batch_correct_output = correct_output[i:i + self.args['batch_size']].to(device=self.args['device'])
                 batch_binary_output = torch.where(batch_correct_output > 0, torch.ones(batch_correct_output.shape, device=self.args['device']), torch.zeros(batch_correct_output.shape,device=self.args['device']))
                 loss = self.loss_function(batch_predictions, batch_binary_output)
-                loss = loss * torch.where(batch_correct_output == 2 or batch_correct_output == -1, 2*torch.ones(batch_correct_output.shape, device=self.args['device']), orch.ones(batch_correct_output.shape, device=self.args['device']))
+                loss = loss * torch.where((batch_correct_output == 2) | (batch_correct_output == -1), 2*torch.ones(batch_correct_output.shape, device=self.args['device']), torch.ones(batch_correct_output.shape, device=self.args['device']))
                 loss = loss.mean()
                 epoch_loss += float(loss.item())
                 #self.log.info(batch_predictions)
