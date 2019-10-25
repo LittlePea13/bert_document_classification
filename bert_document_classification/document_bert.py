@@ -244,6 +244,7 @@ class BertForDocumentClassification():
             self.log.info('Evaluating on Epoch %i' % (self.epoch))
             document_representations, document_sequence_lengths = encode_documents(data[0], self.bert_tokenizer)
             correct_output = torch.FloatTensor(data[1]).transpose(0,1)
+            correct_output = torch.where(correct_output > 0, torch.ones(correct_output.shape), torch.zeros(correct_output.shape))
             assert self.args['labels'] is not None
 
         self.bert_doc_classification.to(device=self.args['device'])
