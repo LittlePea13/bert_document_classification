@@ -175,9 +175,9 @@ class BertForDocumentClassification():
         document_representations, document_sequence_lengths  = encode_documents(train_documents, self.bert_tokenizer)
 
         correct_output = torch.FloatTensor(train_labels)
-
-        loss_weight = ((correct_output.shape[0] / torch.sum(correct_output, dim=0))-self.args['loss_bias']).to(device=self.args['device'])
-        self.loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=loss_weight)
+        binary_output = torch.where(correct_output > 0) 
+        loss_weight = ((binary_output.shape[0] / torch.sum(binary_output, dim=0))-self.args['loss_bias']).to(device=self.args['device'])
+        self.loss_function = torch.nn.BCEWithLogitsLoss(reduction='none',pos_weight=loss_weight)
         self.log.info('Loss weight: %f' % (loss_weight))
 
         assert document_representations.shape[0] == correct_output.shape[0]
@@ -205,7 +205,10 @@ class BertForDocumentClassification():
                                                                  freeze_bert=self.args['freeze_bert'], device=self.args['device'])
 
                 batch_correct_output = correct_output[i:i + self.args['batch_size']].to(device=self.args['device'])
-                loss = self.loss_function(batch_predictions, batch_correct_output)
+                batch_binary_output = torch.where(batch_correct_output > 0) 
+                loss = self.loss_function(batch_predictions, batch_binary_output)
+                loss = loss * torch.where(batch_correct_output == 2 or batch_correct_output == -1, 2, 1)
+                loss = loss.mean()
                 epoch_loss += float(loss.item())
                 #self.log.info(batch_predictions)
                 loss.backward()
