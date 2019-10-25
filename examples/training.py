@@ -15,9 +15,10 @@ labels: an ordered list of labels you are training against. this should match th
 """
 
 from sklearn.metrics import f1_score
-from sklearn.preprocessing import LabelEncoder, normalize
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from bert_document_classification.document_bert import BertForDocumentClassification
 from pprint import pformat
+from sklearn.model_selection import train_test_split
 import sqlite3
 import numpy as np
 import pandas as pd
@@ -139,10 +140,12 @@ if __name__ == "__main__":
                                             random_state=0)
 
     #documents and labels for training
-    training_labels = normalize(np.array(df_training["Reg_Relevance"]))
-    dev_labels = normalize(np.array(df_test["Reg_Relevance"]))
+    min_max_scaler = MinMaxScaler()
+    training_labels = min_max_scaler.fit_transform(np.array(df_training["Reg_Relevance"]))
+    #dev_labels = min_max_scaler.transform(np.array(df_test["Reg_Relevance"]))
+    dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
 
-    train = (articles["estimation_text"], training_labels)
+    train = (df_training["estimation_text"], training_labels)
     dev = (df_test["estimation_text"], dev_labels)
 
     #train_documents, train_labels = list(articles['title']+articles.abstract_text)[1:round(0.8*len(articles))],[[mapping[element]] for element in list(articles.Relevance)][1:round(0.8*len(articles))]

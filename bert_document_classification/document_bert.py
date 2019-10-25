@@ -165,7 +165,7 @@ class BertForDocumentClassification():
         """
 
         train_documents, train_labels = train
-        dev_documents, dev_labels = train
+        dev_documents, dev_labels = dev
 
 
 
@@ -224,7 +224,7 @@ class BertForDocumentClassification():
 
             # evaluate on development data
             if epoch % self.args['evaluation_interval'] == 0:
-                self.predict((dev_documents, dev_labels))
+                self.predict((dev_documents, dev_labels), 0.5)
 
     def predict(self, data, threshold=0):
         """
@@ -266,7 +266,7 @@ class BertForDocumentClassification():
         predictions = predictions.transpose(0, 1)
 
         if correct_output is None:
-            return predictions.cpu()
+            return predictions_cont.cpu()
         else:
             assert correct_output.shape == predictions.shape
             precisions = []
