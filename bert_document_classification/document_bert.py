@@ -327,7 +327,7 @@ class BertForDocumentClassification():
                 eval_results.write('Macro-F1\t' + str(macro_f1) + '\n' )
 
         self.bert_doc_classification.train()
-        return predictions.cpu() ,predictions_cont.cpu()
+        return predictions.cpu() ,predictions_cont.cpu(), precisions, recalls, fmeasures, aprecisions, precisionk
 
     def save_checkpoint(self, checkpoint_path: str):
         """
@@ -349,24 +349,4 @@ class BertForDocumentClassification():
         net.config.to_json_file(os.path.join(checkpoint_path, CONFIG_NAME))
         #save exact vocabulary utilized
         self.bert_tokenizer.save_vocabulary(checkpoint_path)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

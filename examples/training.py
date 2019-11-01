@@ -16,13 +16,14 @@ labels: an ordered list of labels you are training against. this should match th
 
 from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.utils import resample
 from bert_document_classification.document_bert import BertForDocumentClassification
 from pprint import pformat
 import sqlite3
 import pandas as pd
 import time, logging, torch, configargparse, os, socket
-
+import numpy as np
 log = logging.getLogger()
 
 def _initialize_arguments(p: configargparse.ArgParser):
@@ -49,6 +50,7 @@ def _initialize_arguments(p: configargparse.ArgParser):
     p.add('--timestamp', help='Run specific signature')
     p.add('--model_directory', help='The directory storing this model run, a sub-directory of model_storage_directory')
     p.add('--use_tensorboard', help='Use tensorboard logging', type=bool)
+    p.add('--downsampling', help='Use tensorboard logging', type=bool)
     args = p.parse_args()
 
     args.labels = [x for x in args.labels.split(', ')]
@@ -90,13 +92,8 @@ def _initialize_arguments(p: configargparse.ArgParser):
 
     return args
 
-
-if __name__ == "__main__":
-    p = configargparse.ArgParser(default_config_files=["config.ini"])
-    args = _initialize_arguments(p)
-
-    torch.cuda.empty_cache()
-    conn = sqlite3.connect('database.db')
+def load_data(database_path = 'database.db'):
+    conn = sqlite3.connect(database_path)
     mapping = {-1:0,0:0,1:1,2:1}
     articles = pd.read_sql_query(
         "Select article_data.*, submited.Relevance, submited.disease, "
@@ -132,17 +129,36 @@ if __name__ == "__main__":
                             (articles["country"] + " ") + \
                             articles["abstract"]
 
+    articles["Relevance_Raw"] = articles["Relevance"]
     articles.loc[articles["Relevance"].isin([1, 2]), "Relevance"] = "Relevant"
     articles.loc[articles["Relevance"].isin([-1, 0]), "Relevance"] = "Not Relevant"
+    return articles
+
+if __name__ == "__main__":
+    p = configargparse.ArgParser(default_config_files=["config.ini"])
+    args = _initialize_arguments(p)
+
+    torch.cuda.empty_cache()
+
+    articles = load_data()
+    
     df_training, df_test = train_test_split(articles,
                                             train_size=0.8,
                                             stratify=articles.Relevance,
                                             random_state=0)
-
+    if args.downsampling:
+        train_df_relevant = df_training[df_training["Relevance"] == "Relevant"]
+        train_df_non_relevant = df_training[df_training["Relevance"] == "Not Relevant"] 
+        train_df_down_not_relevant = resample(train_df_non_relevant,
+                                            replace=False,
+                                            n_samples=train_df_relevant.shape[0],
+                                            random_state=32)
+        df_training = pd.concat([train_df_relevant, train_df_non_relevant])
     #documents and labels for training
-    training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
-    dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
-
+    training_labels = np.array(df_training["Relevance_Raw"]).reshape(-1,1)
+    dev_labels = np.array(df_test["Relevance_Raw"]).reshape(-1,1)
+    #training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
+    #dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
     train = (df_training["estimation_text"], training_labels)
     dev = (df_test["estimation_text"], dev_labels)
 

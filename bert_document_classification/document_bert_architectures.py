@@ -69,7 +69,7 @@ class DocumentBertLinear(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False):
+    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -114,7 +114,8 @@ class DocumentBertMaxPool(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False):
+    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
