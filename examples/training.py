@@ -153,14 +153,14 @@ if __name__ == "__main__":
                                             replace=False,
                                             n_samples=train_df_relevant.shape[0],
                                             random_state=32)
-        df_training = pd.concat([train_df_relevant, train_df_non_relevant])
+        df_training = pd.concat([train_df_relevant, train_df_down_not_relevant])
     #documents and labels for training
     training_labels = np.array(df_training["Relevance_Raw"]).reshape(-1,1)
     dev_labels = np.array(df_test["Relevance_Raw"]).reshape(-1,1)
     #training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
     #dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
-    train = (df_training["estimation_text"], training_labels)
-    dev = (df_test["estimation_text"], dev_labels)
+    train = (list(df_training["estimation_text"]), training_labels)
+    dev = (list(df_test["estimation_text"]), dev_labels)
 
     #train_documents, train_labels = list(articles['title']+articles.abstract_text)[1:round(0.8*len(articles))],[[mapping[element]] for element in list(articles.Relevance)][1:round(0.8*len(articles))]
 

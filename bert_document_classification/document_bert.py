@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, average_pre
 from tqdm import tqdm
 import numpy as np
 #from sklearn.metrics.classification import precision_at_k_score
-from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool
+from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
     """
@@ -72,7 +72,8 @@ document_bert_architectures = {
     'DocumentBertLSTM': DocumentBertLSTM,
     'DocumentBertTransformer': DocumentBertTransformer,
     'DocumentBertLinear': DocumentBertLinear,
-    'DocumentBertMaxPool': DocumentBertMaxPool
+    'DocumentBertMaxPool': DocumentBertMaxPool,
+    'DocumentBertMean': DocumentBertMean
 }
 
 class BertForDocumentClassification():
@@ -167,14 +168,12 @@ class BertForDocumentClassification():
         train_documents, train_labels = train
         dev_documents, dev_labels = dev
 
-
-
-
         self.bert_doc_classification.train()
 
         document_representations, document_sequence_lengths  = encode_documents(train_documents, self.bert_tokenizer)
 
         correct_output = torch.FloatTensor(train_labels)
+        
         binary_output = torch.where(correct_output > 0, torch.ones(correct_output.shape),torch.zeros(correct_output.shape)) 
         loss_weight = ((binary_output.shape[0] / torch.sum(binary_output, dim=0))-self.args['loss_bias']).to(device=self.args['device'])
         self.loss_function = torch.nn.BCEWithLogitsLoss(reduction='none',pos_weight=loss_weight)
@@ -192,7 +191,7 @@ class BertForDocumentClassification():
             document_representations = document_representations[permutation]
             document_sequence_lengths = document_sequence_lengths[permutation]
             correct_output = correct_output[permutation]
-
+            binary_output = binary_output[permutation]
             self.epoch = epoch
             epoch_loss = 0.0
             for i in tqdm(range(0, document_representations.shape[0], self.args['batch_size'])):
@@ -205,9 +204,9 @@ class BertForDocumentClassification():
                                                                  freeze_bert=self.args['freeze_bert'], device=self.args['device'])
 
                 batch_correct_output = correct_output[i:i + self.args['batch_size']].to(device=self.args['device'])
-                batch_binary_output = torch.where(batch_correct_output > 0, torch.ones(batch_correct_output.shape, device=self.args['device']), torch.zeros(batch_correct_output.shape,device=self.args['device']))
+                batch_binary_output = binary_output[i:i + self.args['batch_size']].to(device=self.args['device']) 
                 loss = self.loss_function(batch_predictions, batch_binary_output)
-                loss = loss * torch.where((batch_correct_output == 2) | (batch_correct_output == -1), 2*torch.ones(batch_correct_output.shape, device=self.args['device']), torch.ones(batch_correct_output.shape, device=self.args['device']))
+                #loss = loss * torch.where((batch_correct_output == 2) | (batch_correct_output == -1), 2*torch.ones(batch_correct_output.shape, device=self.args['device']), torch.ones(batch_correct_output.shape, device=self.args['device']))
                 loss = loss.mean()
                 epoch_loss += float(loss.item())
                 #self.log.info(batch_predictions)
@@ -228,6 +227,7 @@ class BertForDocumentClassification():
             # evaluate on development data
             if epoch % self.args['evaluation_interval'] == 0:
                 self.predict((dev_documents, dev_labels))
+                #self.predict((train_documents, train_labels))
 
     def predict(self, data, threshold=0):
         """

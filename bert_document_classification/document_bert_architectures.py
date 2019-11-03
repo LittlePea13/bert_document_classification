@@ -84,7 +84,7 @@ class DocumentBertLinear(BertPreTrainedModel):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
-                                                attention_mask=document_batch[doc_id][:self.bert_batch_size,2])[1])
+                                                attention_mask=document_batch[doc_id][:self.bert_batch_size,2], output_all_encoded_layers=False)[1])
 
 
         prediction = self.classifier(bert_output.view(bert_output.shape[0], -1))
@@ -134,6 +134,51 @@ class DocumentBertMaxPool(BertPreTrainedModel):
 
 
         prediction = self.classifier(bert_output.max(dim=1)[0])
+        assert prediction.shape[0] == document_batch.shape[0]
+        return prediction
+
+class DocumentBertMean(BertPreTrainedModel):
+    """
+    BERT output over document into an averaged hidden state and then a linear layer
+    """
+
+    def __init__(self, bert_model_config: BertConfig):
+        super(DocumentBertMean, self).__init__(bert_model_config)
+        self.bert = BertModel(bert_model_config)
+        self.bert_batch_size= self.bert.config.bert_batch_size
+        self.dropout = nn.Dropout(p=bert_model_config.hidden_dropout_prob)
+
+        # self.transformer_encoder = TransformerEncoderLayer(d_model=bert_model_config.hidden_size,
+        #                                            nhead=6,
+        #                                            dropout=bert_model_config.hidden_dropout_prob)
+        #self.transformer_encoder = TransformerEncoder(encoder_layer, num_layers=6, norm=nn.LayerNorm(bert_model_config.hidden_size))
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=bert_model_config.hidden_dropout_prob),
+            nn.Linear(bert_model_config.hidden_size, bert_model_config.num_labels),
+            nn.Tanh()
+        )
+
+    #input_ids, token_type_ids, attention_masks
+    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+
+
+        #contains all BERT sequences
+        #bert should output a (batch_size, num_sequences, bert_hidden_size)
+        bert_output = torch.zeros(size=(document_batch.shape[0],
+                                              min(document_batch.shape[1],self.bert_batch_size),
+                                              self.bert.config.hidden_size), dtype=torch.float, device='cuda')
+
+        #only pass through bert_batch_size numbers of inputs into bert.
+        #this means that we are possibly cutting off the last part of documents.
+        use_grad = not freeze_bert
+        with torch.set_grad_enabled(False):
+            for doc_id in range(document_batch.shape[0]):
+                bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
+                                                token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
+                                                attention_mask=document_batch[doc_id][:self.bert_batch_size,2])[1])
+
+
+        prediction = self.classifier(bert_output.mean(dim=1)[0])
         assert prediction.shape[0] == document_batch.shape[0]
         return prediction
 
