@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, average_pre
 from tqdm import tqdm
 import numpy as np
 #from sklearn.metrics.classification import precision_at_k_score
-from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean
+from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
     """
@@ -63,6 +63,51 @@ def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length
 
 
 
+def encode_documents_seq(documents: list, tokenizer: BertTokenizer, max_input_length=512):
+    """
+    Returns a len(documents) * 3 * 512 tensor where len(documents) is the batch
+    dimension and the others encode bert input.
+
+    This is the input to any of the document bert architectures.
+
+    :param documents: a list of text documents
+    :param tokenizer: the sentence piece bert tokenizer
+    :return:
+    """
+    tokenized_documents = [tokenizer.tokenize(document) for document in documents]
+
+    output = torch.zeros(size=(len(documents), 3, 512), dtype=torch.long)
+    document_seq_lengths = [] #number of sequence generated per document
+    #Need to use 510 to account for 2 padding tokens
+    for doc_index, tokenized_document in enumerate(tokenized_documents):
+        raw_tokens = tokenized_document[0:(max_input_length-2)]
+        tokens = []
+        input_type_ids = []
+
+        tokens.append("[CLS]")
+        input_type_ids.append(0)
+        for token in raw_tokens:
+            tokens.append(token)
+            input_type_ids.append(0)
+        tokens.append("[SEP]")
+        input_type_ids.append(0)
+
+        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+        attention_masks = [1] * len(input_ids)
+
+        while len(input_ids) < max_input_length:
+            input_ids.append(0)
+            input_type_ids.append(0)
+            attention_masks.append(0)
+
+        assert len(input_ids) == 512 and len(attention_masks) == 512 and len(input_type_ids) == 512
+
+        #we are ready to rumble
+        output[doc_index] = torch.cat((torch.LongTensor(input_ids).unsqueeze(0),
+                                                        torch.LongTensor(input_type_ids).unsqueeze(0),
+                                                        torch.LongTensor(attention_masks).unsqueeze(0)),
+                                                        dim=0)
+    return output
 
 
 
@@ -73,7 +118,8 @@ document_bert_architectures = {
     'DocumentBertTransformer': DocumentBertTransformer,
     'DocumentBertLinear': DocumentBertLinear,
     'DocumentBertMaxPool': DocumentBertMaxPool,
-    'DocumentBertMean': DocumentBertMean
+    'DocumentBertMean': DocumentBertMean,
+    'DocumentBertLSTMAtt': DocumentBertLSTMAtt
 }
 
 class BertForDocumentClassification():
@@ -227,9 +273,9 @@ class BertForDocumentClassification():
             # evaluate on development data
             if epoch % self.args['evaluation_interval'] == 0:
                 self.predict((dev_documents, dev_labels))
-                #self.predict((train_documents, train_labels))
+                self.predict((train_documents, train_labels))
 
-    def predict(self, data, threshold=0):
+    def predict(self, data, threshold=0.5):
         """
         A tuple containing
         :param data:
@@ -258,7 +304,9 @@ class BertForDocumentClassification():
                 prediction = self.bert_doc_classification(batch_document_tensors,
                                                           batch_document_sequence_lengths,device=self.args['device'])
                 predictions[i:i + self.args['batch_size']] = prediction
-
+        
+        sigmoid = nn.Sigmoid()
+        predictions = sigmoid(predictions)
         predictions_cont = predictions.transpose(0, 1).clone()
         #logging.info(str(predictions_cont[:50]))
         for r in range(0, predictions.shape[0]):
