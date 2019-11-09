@@ -72,14 +72,14 @@ def get_device(device="gpu"):
     Returns:
         torch.device: A PyTorch device (cpu or gpu).
     """
-    if device == "gpu":
+    if device == "cuda":
         if torch.cuda.is_available():
             return torch.device("cuda:0")
         raise Exception("CUDA device not available")
     elif device == "cpu":
         return torch.device("cpu")
     else:
-        raise ValueError("Only 'cpu' and 'gpu' devices are supported.")
+        raise ValueError("Only 'cpu' and 'cuda' devices are supported.")
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
     """
