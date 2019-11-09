@@ -303,13 +303,12 @@ class BertForDocumentClassification():
         self.bert_doc_classification.to(device=self.args['device'])'''
 
         self.bert_doc_classification = move_to_device(self.bert_doc_classification, get_device(self.args['device']))
-        self.log.info('Training on', torch.cuda.device_count(), 'GPUS')
+        self.log.info('Training on %s GPUS' % (torch.cuda.device_count()))
         self.log.info('Training starting')
         for epoch in tqdm(range(1,self.args['epochs']+1)):
             # shuffle
             permutation = torch.randperm(document_representations.shape[0])
             document_representations = document_representations[permutation]
-            document_sequence_lengths = document_sequence_lengths[permutation]
             correct_output = correct_output[permutation]
             binary_output = binary_output[permutation]
             self.epoch = epoch
@@ -317,11 +316,9 @@ class BertForDocumentClassification():
             for i in tqdm(range(0, document_representations.shape[0], self.args['batch_size'])):
 
                 batch_document_tensors = document_representations[i:i + self.args['batch_size']].to(device=self.args['device'])
-                batch_document_sequence_lengths= document_sequence_lengths[i:i+self.args['batch_size']]
                 #self.log.info(batch_document_tensors.shape)
                 self.optimizer.zero_grad()
                 batch_predictions = self.bert_doc_classification(batch_document_tensors,
-                                                                 batch_document_sequence_lengths,
                                                                  freeze_bert=self.args['freeze_bert'], device=self.args['device'])
 
                 batch_correct_output = correct_output[i:i + self.args['batch_size']].to(device=self.args['device'])
@@ -373,10 +370,8 @@ class BertForDocumentClassification():
             predictions = torch.empty((document_representations.shape[0], len(self.args['labels'])))
             for i in range(0, document_representations.shape[0], self.args['batch_size']):
                 batch_document_tensors = document_representations[i:i + self.args['batch_size']].to(device=self.args['device'])
-                batch_document_sequence_lengths= document_sequence_lengths[i:i+self.args['batch_size']]
 
-                prediction = self.bert_doc_classification(batch_document_tensors,
-                                                          batch_document_sequence_lengths,device=self.args['device'])
+                prediction = self.bert_doc_classification(batch_document_tensors, device=self.args['device'])
                 predictions[i:i + self.args['batch_size']] = prediction
         
         sigmoid = nn.Sigmoid()

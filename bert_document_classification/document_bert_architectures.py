@@ -21,7 +21,7 @@ class DocumentBertLSTM(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -67,7 +67,7 @@ class DocumentBertLinear(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -111,7 +111,7 @@ class DocumentBertMaxPool(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
 
 
         #contains all BERT sequences
@@ -155,7 +155,7 @@ class DocumentBertMean(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
 
 
         #contains all BERT sequences
@@ -200,7 +200,7 @@ class DocumentBertTransformer(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=True):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -247,7 +247,7 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
             non_linearity="tanh")
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, document_sequence_lengths: list, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
