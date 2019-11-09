@@ -141,26 +141,31 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     articles = load_data()
-    
-    df_training, df_test = train_test_split(articles,
-                                            train_size=0.8,
-                                            stratify=articles.Relevance,
-                                            random_state=0)
-    if args.downsampling:
-        train_df_relevant = df_training[df_training["Relevance"] == "Relevant"]
-        train_df_non_relevant = df_training[df_training["Relevance"] == "Not Relevant"] 
-        train_df_down_not_relevant = resample(train_df_non_relevant,
-                                            replace=False,
-                                            n_samples=train_df_relevant.shape[0],
-                                            random_state=32)
-        df_training = pd.concat([train_df_relevant, train_df_down_not_relevant])
-    #documents and labels for training
-    training_labels = np.array(df_training["Relevance_Raw"]).reshape(-1,1)
-    dev_labels = np.array(df_test["Relevance_Raw"]).reshape(-1,1)
-    #training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
-    #dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
-    train = (df_training["estimation_text"], training_labels)
-    dev = (df_test["estimation_text"], dev_labels)
+
+    kf = StratifiedKFold(n_splits=5, 
+                     shuffle=True, 
+                     random_state=29)
+    i = 0
+    for training_index, test_index in kf.split(articles, articles["Relevance"]):
+        i += 1
+        df_training = articles.iloc[training_index, :]
+        df_test = articles.iloc[test_index, :]
+
+        if args.downsampling:
+            train_df_relevant = df_training[df_training["Relevance"] == "Relevant"]
+            train_df_non_relevant = df_training[df_training["Relevance"] == "Not Relevant"] 
+            train_df_down_not_relevant = resample(train_df_non_relevant,
+                                                replace=False,
+                                                n_samples=train_df_relevant.shape[0],
+                                                random_state=32)
+            df_training = pd.concat([train_df_relevant, train_df_down_not_relevant])
+        #documents and labels for training
+        training_labels = np.array(df_training["Relevance_Raw"]).reshape(-1,1)
+        dev_labels = np.array(df_test["Relevance_Raw"]).reshape(-1,1)
+        #training_labels = df_training["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
+        #dev_labels = df_test["Relevance"].map({"Relevant":[1], "Not Relevant":[0]})
+        train = (list(df_training["estimation_text"]), training_labels)
+        dev = (list(df_test["estimation_text"]), dev_labels)
 
     #train_documents, train_labels = list(articles['title']+articles.abstract_text)[1:round(0.8*len(articles))],[[mapping[element]] for element in list(articles.Relevance)][1:round(0.8*len(articles))]
 
@@ -168,5 +173,13 @@ if __name__ == "__main__":
     #documents and labels for development
     #dev_documents, dev_labels = list(articles['title']+articles.abstract_text)[round(0.8*len(articles)):],[[mapping[element]] for element in list(articles.Relevance)][round(0.8*len(articles)):]
 
-    model = BertForDocumentClassification(args=args)
-    model.fit(train, dev)
+        model = BertForDocumentClassification(args=args)
+        model.fit(train, dev)
+        predictions, predictions_cont, precisions, recalls, fmeasures, aprecisions, precisionk = model.predict(dev)
+
+        with open(os.path.join(args.model_directory "eval_cross_%s.csv" % i), 'w') as eval_results:
+            eval_results.write('Precision\t' + '\t'.join([str(precisions[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
+            eval_results.write('Recall\t' + '\t'.join([str(recalls[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
+            eval_results.write('F1\t' + '\t'.join([ str(fmeasures[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
+            eval_results.write('Average-Precision\t' + '\t'.join([ str(aprecisions[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )
+            eval_results.write('Precision-at-30\t' + '\t'.join([ str(precisionk[label_idx]) for label_idx in range(predictions.shape[0])]) + '\n' )

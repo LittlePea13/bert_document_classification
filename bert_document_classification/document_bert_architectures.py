@@ -240,7 +240,7 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
             nn.Dropout(p=bert_model_config.hidden_dropout_prob),
             nn.Linear(bert_model_config.hidden_size, bert_model_config.num_labels),
         )
-        self.attention = Attention(bert_model_config.hidden_size,
+        self.attention = AttentionModule(bert_model_config.hidden_size,
             batch_first=True,
             layers=1,
             dropout=.0,
@@ -268,13 +268,13 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
 
         #last_layer = output[-1]
         #print("Last LSTM layer shape:",last_layer.shape)
-        attention_output, _, _ = self.attention(output)
+        attention_output, _, _ = self.attention.forward(inputs = output.permute(1,0,2))
         prediction = self.classifier(attention_output)
         #print("Prediction Shape", prediction.shape)
         assert prediction.shape[0] == document_batch.shape[0]
         return prediction
 
-class Attention(nn.Module):
+class AttentionModule(nn.Module):
     def __init__(
         self,
         attention_size,
@@ -282,10 +282,9 @@ class Attention(nn.Module):
         layers=1,
         dropout=.0,
         non_linearity="tanh"):
-        super(SelfAttention, self).__init__()
+        super(AttentionModule, self).__init__()
 
         self.batch_first = batch_first
-        self.device = device
 
         if non_linearity == "relu":
             activation = nn.ReLU()
@@ -307,8 +306,6 @@ class Attention(nn.Module):
         self.attention = nn.Sequential(*modules_att)
 
         self.softmax = nn.Softmax(dim=-1)
-
-    @staticmethod
 
     def forward(self, inputs):
 

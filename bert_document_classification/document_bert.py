@@ -1,13 +1,69 @@
 from pytorch_transformers.modeling_bert import BertPreTrainedModel, BertConfig, BertModel
 from pytorch_transformers.modeling_utils import WEIGHTS_NAME, CONFIG_NAME
 from pytorch_transformers.tokenization_bert import BertTokenizer
+from pytorch_transformers.optimization import BertAdam
 from torch import nn
-import torch,math,logging,os
+import torch,math,logging,os, warnings
 from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
 from tqdm import tqdm
 import numpy as np
 #from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt
+
+def move_to_device(model, device, num_gpus=None):
+    """Moves a model to the specified device (cpu or gpu/s)
+       and implements data parallelism when multiple gpus are specified.
+    Args:
+        model (Module): A PyTorch model
+        device (torch.device): A PyTorch device
+        num_gpus (int): The number of GPUs to be used. Defaults to None,
+            all gpus are used.
+    Returns:
+        Module, DataParallel: A PyTorch Module or
+            a DataParallel wrapper (when multiple gpus are used).
+    """
+    if isinstance(model, nn.DataParallel):
+        model = model.module
+
+    if not isinstance(device, torch.device):
+        raise ValueError("device must be of type torch.device.")
+
+    if device.type == "cuda":
+        model.to(device)  # inplace
+        if num_gpus == 0:
+            raise ValueError("num_gpus must be non-zero when device.type is 'cuda'")
+        elif num_gpus == 1:
+            return model
+        else:
+            # parallelize
+            num_cuda_devices = torch.cuda.device_count()
+            if num_cuda_devices < 1:
+                raise Exception("CUDA devices are not available.")
+            elif num_cuda_devices < 2:
+                print("Warning: Only 1 CUDA device is available. Data parallelism is not possible.")
+                return model
+            else:
+                if num_gpus is None:
+                    # use all available devices
+                    return nn.DataParallel(model, device_ids=None)
+                elif num_gpus > num_cuda_devices:
+                    print(
+                        "Warning: Only {0} devices are available. "
+                        "Setting the number of gpus to {0}".format(num_cuda_devices)
+                    )
+                    return nn.DataParallel(model, device_ids=None)
+                else:
+                    return nn.DataParallel(model, device_ids=list(range(num_gpus)))
+    elif device.type == "cpu":
+        if num_gpus != 0 and num_gpus is not None:
+            warnings.warn("Device type is 'cpu'. num_gpus is ignored.")
+        return model.to(device)
+
+    else:
+        raise Exception(
+            "Device type '{}' not supported. Currently, only cpu "
+            "and cuda devices are supported.".format(device.type)
+        )
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
     """
@@ -195,7 +251,7 @@ class BertForDocumentClassification():
 
 
         self.bert_doc_classification = document_bert_architectures[self.args['architecture']].from_pretrained(self.args['bert_model_path'], config=config)
-        self.optimizer = torch.optim.Adam(
+        self.optimizer = BertAdamx§(
             self.bert_doc_classification.parameters(),
             weight_decay=self.args['weight_decay'],
             lr=self.args['learning_rate']
@@ -215,7 +271,6 @@ class BertForDocumentClassification():
         dev_documents, dev_labels = dev
 
         self.bert_doc_classification.train()
-
         document_representations, document_sequence_lengths  = encode_documents(train_documents, self.bert_tokenizer)
 
         correct_output = torch.FloatTensor(train_labels)
@@ -227,9 +282,11 @@ class BertForDocumentClassification():
 
         assert document_representations.shape[0] == correct_output.shape[0]
 
-        if torch.cuda.device_count() > 1:
+        '''if torch.cuda.device_count() > 1:
             self.bert_doc_classification = torch.nn.DataParallel(self.bert_doc_classification)
-        self.bert_doc_classification.to(device=self.args['device'])
+        self.bert_doc_classification.to(device=self.args['device'])'''
+        self.bert_doc_classification = move_to_device(self.bert_doc_classification, self.args['device'])
+        self.log.info('Training on', torch.cuda.device_count(), 'GPUS')
         self.log.info('Training starting')
         for epoch in tqdm(range(1,self.args['epochs']+1)):
             # shuffle
@@ -245,6 +302,7 @@ class BertForDocumentClassification():
                 batch_document_tensors = document_representations[i:i + self.args['batch_size']].to(device=self.args['device'])
                 batch_document_sequence_lengths= document_sequence_lengths[i:i+self.args['batch_size']]
                 #self.log.info(batch_document_tensors.shape)
+                self.optimizer.zero_grad()
                 batch_predictions = self.bert_doc_classification(batch_document_tensors,
                                                                  batch_document_sequence_lengths,
                                                                  freeze_bert=self.args['freeze_bert'], device=self.args['device'])
@@ -258,7 +316,6 @@ class BertForDocumentClassification():
                 #self.log.info(batch_predictions)
                 loss.backward()
                 self.optimizer.step()
-                self.optimizer.zero_grad()
 
             epoch_loss /= int(document_representations.shape[0] / self.args['batch_size'])  # divide by number of batches per epoch
 
@@ -273,7 +330,7 @@ class BertForDocumentClassification():
             # evaluate on development data
             if epoch % self.args['evaluation_interval'] == 0:
                 self.predict((dev_documents, dev_labels))
-                self.predict((train_documents, train_labels))
+                #self.predict((train_documents, train_labels))
 
     def predict(self, data, threshold=0.5):
         """
