@@ -1,7 +1,7 @@
 from pytorch_transformers.modeling_bert import BertPreTrainedModel, BertConfig, BertModel
 from pytorch_transformers.modeling_utils import WEIGHTS_NAME, CONFIG_NAME
 from pytorch_transformers.tokenization_bert import BertTokenizer
-from pytorch_transformers.optimization import BertAdam
+from pytorch_transformers.optimization import AdamW
 from torch import nn
 import torch,math,logging,os, warnings
 from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
@@ -64,6 +64,22 @@ def move_to_device(model, device, num_gpus=None):
             "Device type '{}' not supported. Currently, only cpu "
             "and cuda devices are supported.".format(device.type)
         )
+
+def get_device(device="gpu"):
+    """Gets a PyTorch device.
+    Args:
+        device (str, optional): Device string: "cpu" or "gpu". Defaults to "gpu".
+    Returns:
+        torch.device: A PyTorch device (cpu or gpu).
+    """
+    if device == "gpu":
+        if torch.cuda.is_available():
+            return torch.device("cuda:0")
+        raise Exception("CUDA device not available")
+    elif device == "cpu":
+        return torch.device("cpu")
+    else:
+        raise ValueError("Only 'cpu' and 'gpu' devices are supported.")
 
 def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length=512):
     """
@@ -251,7 +267,7 @@ class BertForDocumentClassification():
 
 
         self.bert_doc_classification = document_bert_architectures[self.args['architecture']].from_pretrained(self.args['bert_model_path'], config=config)
-        self.optimizer = BertAdamx§(
+        self.optimizer = AdamW(
             self.bert_doc_classification.parameters(),
             weight_decay=self.args['weight_decay'],
             lr=self.args['learning_rate']
@@ -285,7 +301,8 @@ class BertForDocumentClassification():
         '''if torch.cuda.device_count() > 1:
             self.bert_doc_classification = torch.nn.DataParallel(self.bert_doc_classification)
         self.bert_doc_classification.to(device=self.args['device'])'''
-        self.bert_doc_classification = move_to_device(self.bert_doc_classification, self.args['device'])
+
+        self.bert_doc_classification = move_to_device(self.bert_doc_classification, get_device(self.args['device']))
         self.log.info('Training on', torch.cuda.device_count(), 'GPUS')
         self.log.info('Training starting')
         for epoch in tqdm(range(1,self.args['epochs']+1)):
