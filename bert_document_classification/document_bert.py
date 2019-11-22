@@ -7,6 +7,8 @@ import torch,math,logging,os, warnings
 from sklearn.metrics import f1_score, precision_score, recall_score, average_precision_score
 from tqdm import tqdm
 import numpy as np
+from itertools import groupby
+
 #from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt
 
