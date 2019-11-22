@@ -8,7 +8,10 @@ from sklearn.metrics import f1_score, precision_score, recall_score, average_pre
 from tqdm import tqdm
 import numpy as np
 from itertools import groupby
-
+import importlib
+    spam_spec = importlib.util.find_spec("spam")
+    if spam_spec is not None:
+        from apex import amp
 #from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt
 
@@ -297,8 +300,8 @@ class BertForDocumentClassification():
             weight_decay=self.args['weight_decay'],
             lr=self.args['learning_rate']
         )
-
-
+        if spam_spec is not None:
+            self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
 
     def fit(self, train, dev):
         """
@@ -356,7 +359,11 @@ class BertForDocumentClassification():
                 loss = loss.mean()
                 epoch_loss += float(loss.item())
                 #self.log.info(batch_predictions)
-                loss.backward()
+                if spam_spec is not None:
+                    with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
                 self.optimizer.step()
 
             epoch_loss /= int(document_representations.shape[0] / self.args['batch_size'])  # divide by number of batches per epoch
