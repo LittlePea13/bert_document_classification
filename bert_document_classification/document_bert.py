@@ -384,10 +384,17 @@ class BertForDocumentClassification():
         document_representations = None
         correct_output = None
         if isinstance(data, list):
-            document_representations, _ = encode_documents(data, self.bert_tokenizer)
+            if 'sequence_wise' in self.args and self.args['sequence_wise']:
+                document_representations, _  = encode_documents_seq(data, self.bert_tokenizer, self.args['max_len_size'], self.args['bert_batch_size'])
+            else:
+                document_representations, _  = encode_documents(data, self.bert_tokenizer, self.args['max_len_size'])
+
         if isinstance(data, tuple) and len(data) == 2:
             self.log.info('Evaluating on Epoch %i' % (self.epoch))
-            document_representations, _ = encode_documents(data[0], self.bert_tokenizer)
+            if 'sequence_wise' in self.args and self.args['sequence_wise']:
+                document_representations, _  = encode_documents_seq(data, self.bert_tokenizer, self.args['max_len_size'], self.args['bert_batch_size'])
+            else:
+                document_representations, _  = encode_documents(data, self.bert_tokenizer, self.args['max_len_size'])
             correct_output = torch.FloatTensor(data[1]).transpose(0,1)
             correct_output = torch.where(correct_output > 0, torch.ones(correct_output.shape), torch.zeros(correct_output.shape))
             assert self.args['labels'] is not None
