@@ -32,18 +32,17 @@ class DocumentBertLSTM(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(False):
+        with torch.set_grad_enabled(freeze_bert):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
                                                 attention_mask=document_batch[doc_id][:self.bert_batch_size,2])[1])
 
         output, (_, _) = self.lstm(bert_output.permute(1,0,2))
-
-        last_layer = output[-1]
+        del(bert_output)
         #print("Last LSTM layer shape:",last_layer.shape)
-
-        prediction = self.classifier(last_layer)
+        prediction = self.classifier(output[-1])
+        del(output)
         #print("Prediction Shape", prediction.shape)
         assert prediction.shape[0] == document_batch.shape[0]
         return prediction
@@ -77,6 +76,7 @@ class DocumentBertLinear(BertPreTrainedModel):
 
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
+        del(document_batch)
         use_grad = not freeze_bert
         with torch.set_grad_enabled(False):
             for doc_id in range(document_batch.shape[0]):
@@ -123,7 +123,7 @@ class DocumentBertMaxPool(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(False):
+        with torch.set_grad_enabled(freeze_bert):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -167,7 +167,7 @@ class DocumentBertMean(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(False):
+        with torch.set_grad_enabled(freeze_bert):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -211,7 +211,7 @@ class DocumentBertTransformer(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(False):
+        with torch.set_grad_enabled(freeze_bert):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -258,17 +258,18 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(False):
+        with torch.set_grad_enabled(freeze_bert):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
                                                 attention_mask=document_batch[doc_id][:self.bert_batch_size,2])[1])
-
+        del(document_batch)
         output, (_, _) = self.lstm(bert_output.permute(1,0,2))
-
+        del(bert_output)
         #last_layer = output[-1]
         #print("Last LSTM layer shape:",last_layer.shape)
         attention_output, _, _ = self.attention.forward(inputs = output.permute(1,0,2))
+        del(output)
         prediction = self.classifier(attention_output)
         #print("Prediction Shape", prediction.shape)
         assert prediction.shape[0] == document_batch.shape[0]
