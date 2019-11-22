@@ -21,7 +21,7 @@ class DocumentBertLSTM(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -66,7 +66,7 @@ class DocumentBertLinear(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -78,7 +78,7 @@ class DocumentBertLinear(BertPreTrainedModel):
         #this means that we are possibly cutting off the last part of documents.
         del(document_batch)
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(False):
+        with torch.set_grad_enabled(use_grad):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -111,7 +111,7 @@ class DocumentBertMaxPool(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
 
 
         #contains all BERT sequences
@@ -123,7 +123,7 @@ class DocumentBertMaxPool(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(freeze_bert):
+        with torch.set_grad_enabled(use_grad):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -155,7 +155,7 @@ class DocumentBertMean(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
 
 
         #contains all BERT sequences
@@ -167,7 +167,7 @@ class DocumentBertMean(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(freeze_bert):
+        with torch.set_grad_enabled(use_grad):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -200,7 +200,7 @@ class DocumentBertTransformer(BertPreTrainedModel):
         )
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, freeze_bert=True):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -211,7 +211,7 @@ class DocumentBertTransformer(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(freeze_bert):
+        with torch.set_grad_enabled(use_grad):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
@@ -247,7 +247,7 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
             non_linearity="tanh")
 
     #input_ids, token_type_ids, attention_masks
-    def forward(self, document_batch: torch.Tensor, freeze_bert=False, device='cuda'):
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
 
         #contains all BERT sequences
         #bert should output a (batch_size, num_sequences, bert_hidden_size)
@@ -258,7 +258,7 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
         #only pass through bert_batch_size numbers of inputs into bert.
         #this means that we are possibly cutting off the last part of documents.
         use_grad = not freeze_bert
-        with torch.set_grad_enabled(freeze_bert):
+        with torch.set_grad_enabled(use_grad):
             for doc_id in range(document_batch.shape[0]):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
