@@ -135,9 +135,9 @@ def encode_documents(documents: list, tokenizer: BertTokenizer, max_input_length
 
 
 
-def encode_documents_seq(documents: list, tokenizer: BertTokenizer, max_input_length=512):
+def encode_documents_seq(documents: list, tokenizer: BertTokenizer, max_input_length=512, bert_batch_size=5 ):
     """
-    Returns a len(documents) * 3 * 512 tensor where len(documents) is the batch
+    Returns a len(documents) * max_sequences_per_document * 3 * 512 tensor where len(documents) is the batch
     dimension and the others encode bert input.
 
     This is the input to any of the document bert architectures.
@@ -146,40 +146,63 @@ def encode_documents_seq(documents: list, tokenizer: BertTokenizer, max_input_le
     :param tokenizer: the sentence piece bert tokenizer
     :return:
     """
-    tokenized_documents = [tokenizer.tokenize(document) for document in documents]
+    tokenized_documents = [tokenizer.tokenize(document) for document in documents]  
+    #max_sequences_per_document = math.ceil(max(len(x)/(max_input_length-2) for x in tokenized_documents))
+    new_tokenized_documents = []
+    number_of_sen = []
+    max_sen_len = []
+    for document in tokenized_documents:
+        i = (list(g) for _, g in groupby(document, key='.'.__ne__))
+        sentences = [a + b for a, b in zip(i, i)]
+        try:
+            max_sen_len.append(len(max(sentences,key=len)))
+        except:
+            max_sen_len.append(0)
+        number_of_sen.append(len(sentences))
+        new_tokenized_documents.append(sentences)
+    max_sequences_per_document = max(number_of_sen)
+    assert max_sequences_per_document <= 110, "Your document is to large, arbitrary size when writing"
 
-    output = torch.zeros(size=(len(documents), 3, max_input_length), dtype=torch.long)
+    output = torch.zeros(size=(len(documents), bert_batch_size, 3, max_input_length), dtype=torch.long)
     document_seq_lengths = [] #number of sequence generated per document
     #Need to use 510 to account for 2 padding tokens
     for doc_index, tokenized_document in enumerate(tokenized_documents):
-        raw_tokens = tokenized_document[0:(max_input_length-2)]
-        tokens = []
-        input_type_ids = []
+        max_seq_index = 0
+        for seq_index, i in enumerate(range(0, bert_batch_size)):
+            try:
+                raw_tokens = tokenized_document[i][:(max_input_length-2)]
+            except:
+                raw_tokens = []
+            tokens = []
+            input_type_ids = []
 
-        tokens.append("[CLS]")
-        input_type_ids.append(0)
-        for token in raw_tokens:
-            tokens.append(token)
+            tokens.append("[CLS]")
             input_type_ids.append(0)
-        tokens.append("[SEP]")
-        input_type_ids.append(0)
-
-        input_ids = tokenizer.convert_tokens_to_ids(tokens)
-        attention_masks = [1] * len(input_ids)
-
-        while len(input_ids) < max_input_length:
-            input_ids.append(0)
+            for token in raw_tokens:
+                tokens.append(token)
+                input_type_ids.append(0)
+            tokens.append("[SEP]")
             input_type_ids.append(0)
-            attention_masks.append(0)
 
-        assert len(input_ids) == max_input_length and len(attention_masks) == max_input_length and len(input_type_ids) == max_input_length
+            input_ids = tokenizer.convert_tokens_to_ids(tokens)
+            attention_masks = [1] * len(input_ids)
 
-        #we are ready to rumble
-        output[doc_index] = torch.cat((torch.LongTensor(input_ids).unsqueeze(0),
-                                                        torch.LongTensor(input_type_ids).unsqueeze(0),
-                                                        torch.LongTensor(attention_masks).unsqueeze(0)),
-                                                        dim=0)
-    return output
+            while len(input_ids) < max_input_length:
+                input_ids.append(0)
+                input_type_ids.append(0)
+                attention_masks.append(0)
+
+            assert len(input_ids) == max_input_length and len(attention_masks) == max_input_length and len(input_type_ids) == max_input_length
+
+            #we are ready to rumble
+            output[doc_index][seq_index] = torch.cat((torch.LongTensor(input_ids).unsqueeze(0),
+                                                           torch.LongTensor(input_type_ids).unsqueeze(0),
+                                                           torch.LongTensor(attention_masks).unsqueeze(0)),
+                                                          dim=0)
+            max_seq_index = seq_index
+        document_seq_lengths.append(max_seq_index+1)
+    return output, torch.LongTensor(document_seq_lengths)
+
 
 
 
@@ -287,7 +310,10 @@ class BertForDocumentClassification():
         dev_documents, dev_labels = dev
 
         self.bert_doc_classification.train()
-        document_representations, document_sequence_lengths  = encode_documents(train_documents, self.bert_tokenizer)
+        if 'sequence_wise' in self.args and self.args['sequence_wise']:
+            document_representations, _  = encode_documents_seq(train_documents, self.bert_tokenizer, self.args['max_len_size'], self.args['bert_batch_size'])
+        else:
+            document_representations, _  = encode_documents(train_documents, self.bert_tokenizer, self.args['max_len_size'])
 
         correct_output = torch.FloatTensor(train_labels)
         
@@ -354,13 +380,12 @@ class BertForDocumentClassification():
         :return:
         """
         document_representations = None
-        document_sequence_lengths = None
         correct_output = None
         if isinstance(data, list):
-            document_representations, document_sequence_lengths = encode_documents(data, self.bert_tokenizer)
+            document_representations, _ = encode_documents(data, self.bert_tokenizer)
         if isinstance(data, tuple) and len(data) == 2:
             self.log.info('Evaluating on Epoch %i' % (self.epoch))
-            document_representations, document_sequence_lengths = encode_documents(data[0], self.bert_tokenizer)
+            document_representations, _ = encode_documents(data[0], self.bert_tokenizer)
             correct_output = torch.FloatTensor(data[1]).transpose(0,1)
             correct_output = torch.where(correct_output > 0, torch.ones(correct_output.shape), torch.zeros(correct_output.shape))
             assert self.args['labels'] is not None

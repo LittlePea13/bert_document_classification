@@ -34,7 +34,9 @@ def _initialize_arguments(p: configargparse.ArgParser):
     p.add('--freeze_bert', help='Whether to freeze bert', type=bool)
 
     p.add('--batch_size', help='Batch size for training multi-label document classifier', type=int)
-    p.add('--bert_batch_size', help='Batch size for feeding 510 token subsets of documents through BERT', type=int)
+    p.add('--bert_batch_size', help='Batch size for feeding max_len_size token subsets of documents through BERT', type=int)
+    p.add('--max_len_size', help='Max length of sentences to feed BERT.', type=int)
+    p.add('--sequence_wise', help='Use a sequence divider (using dots) for bert_batch_size tokenization.', type=bool)
     p.add('--epochs', help='Epochs to train', type=int)
     #Optimizer arguments
     p.add('--learning_rate', help='Optimizer step size', type=float)
@@ -50,7 +52,7 @@ def _initialize_arguments(p: configargparse.ArgParser):
     p.add('--timestamp', help='Run specific signature')
     p.add('--model_directory', help='The directory storing this model run, a sub-directory of model_storage_directory')
     p.add('--use_tensorboard', help='Use tensorboard logging', type=bool)
-    p.add('--downsampling', help='Use tensorboard logging', type=bool)
+    p.add('--downsampling', help='Use downsampling to get balanced data', type=bool)
     args = p.parse_args()
 
     args.labels = [x for x in args.labels.split(', ')]
