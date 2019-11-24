@@ -263,7 +263,6 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
                 bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
                                                 token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
                                                 attention_mask=document_batch[doc_id][:self.bert_batch_size,2])[1])
-        del(document_batch)
         output, (_, _) = self.lstm(bert_output.permute(1,0,2))
         del(bert_output)
         #last_layer = output[-1]

@@ -9,9 +9,9 @@ from tqdm import tqdm
 import numpy as np
 from itertools import groupby
 import importlib
-    spam_spec = importlib.util.find_spec("spam")
-    if spam_spec is not None:
-        from apex import amp
+spam_spec = importlib.util.find_spec("apex")
+if spam_spec is not None:
+    from apex import amp
 #from sklearn.metrics.classification import precision_at_k_score
 from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt
 
@@ -300,8 +300,6 @@ class BertForDocumentClassification():
             weight_decay=self.args['weight_decay'],
             lr=self.args['learning_rate']
         )
-        if spam_spec is not None:
-            self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
 
     def fit(self, train, dev):
         """
@@ -334,6 +332,9 @@ class BertForDocumentClassification():
         self.bert_doc_classification.to(device=self.args['device'])'''
 
         self.bert_doc_classification = move_to_device(self.bert_doc_classification, get_device(self.args['device']))
+        if spam_spec is not None:
+            self.bert_doc_classification, self.optimizer = amp.initialize(self.bert_doc_classification, self.optimizer, opt_level="O1")
+
         self.log.info('Training on %s GPUS' % (torch.cuda.device_count()))
         self.log.info('Training starting')
         for epoch in tqdm(range(1,self.args['epochs']+1)):
