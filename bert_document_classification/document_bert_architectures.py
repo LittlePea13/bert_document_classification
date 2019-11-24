@@ -274,6 +274,52 @@ class DocumentBertLSTMAtt(BertPreTrainedModel):
         assert prediction.shape[0] == document_batch.shape[0]
         return prediction
 
+class DocumentBertAtt(BertPreTrainedModel):
+    """
+    BERT output over document in Attention
+    """
+
+    def __init__(self, bert_model_config: BertConfig):
+        super(DocumentBertAtt, self).__init__(bert_model_config)
+        self.bert = BertModel(bert_model_config)
+        self.bert_batch_size= self.bert.config.bert_batch_size
+        self.dropout = nn.Dropout(p=bert_model_config.hidden_dropout_prob)
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=bert_model_config.hidden_dropout_prob),
+            nn.Linear(bert_model_config.hidden_size, bert_model_config.num_labels),
+        )
+        self.attention = AttentionModule(bert_model_config.hidden_size,
+            batch_first=True,
+            layers=1,
+            dropout=.0,
+            non_linearity="tanh")
+
+    #input_ids, token_type_ids, attention_masks
+    def forward(self, document_batch: torch.Tensor, freeze_bert=True, device='cuda'):
+
+        #contains all BERT sequences
+        #bert should output a (batch_size, num_sequences, bert_hidden_size)
+        bert_output = torch.zeros(size=(document_batch.shape[0],
+                                              min(document_batch.shape[1],self.bert_batch_size),
+                                              self.bert.config.hidden_size), dtype=torch.float, device=device)
+
+        #only pass through bert_batch_size numbers of inputs into bert.
+        #this means that we are possibly cutting off the last part of documents.
+        use_grad = not freeze_bert
+        with torch.set_grad_enabled(use_grad):
+            for doc_id in range(document_batch.shape[0]):
+                bert_output[doc_id][:self.bert_batch_size] = self.dropout(self.bert(document_batch[doc_id][:self.bert_batch_size,0],
+                                                token_type_ids=document_batch[doc_id][:self.bert_batch_size,1],
+                                                attention_mask=document_batch[doc_id][:self.bert_batch_size,2])[1])
+        #last_layer = output[-1]
+        #print("Last LSTM layer shape:",last_layer.shape)
+        attention_output, _, _ = self.attention.forward(inputs = bert_output)
+        del(bert_output)
+        prediction = self.classifier(attention_output)
+        #print("Prediction Shape", prediction.shape)
+        assert prediction.shape[0] == document_batch.shape[0]
+        return prediction
+
 class AttentionModule(nn.Module):
     def __init__(
         self,

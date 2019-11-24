@@ -13,7 +13,7 @@ spam_spec = importlib.util.find_spec("apex")
 if spam_spec is not None:
     from apex import amp
 #from sklearn.metrics.classification import precision_at_k_score
-from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt
+from .document_bert_architectures import DocumentBertLSTM, DocumentBertLinear, DocumentBertTransformer, DocumentBertMaxPool, DocumentBertMean, DocumentBertLSTMAtt, DocumentBertAtt
 
 def move_to_device(model, device, num_gpus=None):
     """Moves a model to the specified device (cpu or gpu/s)
@@ -219,7 +219,8 @@ document_bert_architectures = {
     'DocumentBertLinear': DocumentBertLinear,
     'DocumentBertMaxPool': DocumentBertMaxPool,
     'DocumentBertMean': DocumentBertMean,
-    'DocumentBertLSTMAtt': DocumentBertLSTMAtt
+    'DocumentBertLSTMAtt': DocumentBertLSTMAtt,
+    'DocumentBertAtt': DocumentBertAtt
 }
 
 class BertForDocumentClassification():
